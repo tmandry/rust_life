@@ -1,41 +1,17 @@
 extern crate sdl2;
-extern crate rand;
 use sdl2::pixels::Color;
-use sdl2::rect::{Point, Rect};
+use sdl2::rect::Rect;
 use sdl2::render::Renderer;
 
-struct Life {
-  a: Box<[[bool; 50]; 50]>
-}
-
-impl Life {
-  fn new() -> Life {
-    let mut a = Box::new([[false; 50]; 50]);
-
-    for i in 0..300 {
-      let r = rand::random::<usize>() % 50;
-      let c = rand::random::<usize>() % 50;
-      a[r][c] = true;
-    }
-
-    Life {
-      a: a
-    }
-  }
-
-  fn size(&self) -> (u32, u32) {
-    (50, 50)
-  }
-
-  fn update(&self) {
-  }
-}
+mod life;
+use life::Life;
 
 struct LifeRenderer {}
 impl LifeRenderer {
   fn draw(board: &Life, renderer: &mut Renderer) -> Result<(), String> {
     let (w, h) = renderer.window().unwrap().size();
-    let (rows, cols) = board.size();
+    let rows = board.size().0 as u32;
+    let cols = board.size().1 as u32;
 
     let line_width = 1;
     let total_line_width_h = line_width * (cols-1);
@@ -46,10 +22,10 @@ impl LifeRenderer {
     let total_cell_width = cell_width + line_width;
     let total_cell_height = cell_height + line_width;
 
-    try!(renderer.window_mut().unwrap().set_size(
-      cell_width * cols + line_width * (cols-1),
-      cell_height * rows + line_width * (rows-1)
-    ).or(Err("Could not resize window")));
+    //try!(renderer.window_mut().unwrap().set_size(
+    //  cell_width * cols + line_width * (cols-1),
+    //  cell_height * rows + line_width * (rows-1)
+    //).or(Err("Could not resize window")));
     let (w, h) = renderer.window().unwrap().size();
 
     renderer.set_draw_color(Color::RGB(220,220,220));
@@ -66,9 +42,9 @@ impl LifeRenderer {
 
     renderer.set_draw_color(Color::RGB(50,50,220));
 
-    for r in 0..board.a.len() {
-      for c in 0..board.a[r].len() {
-        if board.a[r][c] {
+    for r in 0..board.len() {
+      for c in 0..board[r].len() {
+        if board[r][c] {
           let x = total_cell_width as i32 * c as i32;
           let y = total_cell_height as i32 * r as i32;
           try!(renderer.fill_rect(Rect::new(x, y, cell_width, cell_height)));
@@ -90,24 +66,27 @@ fn main() {
   let mut life = Life::new();
 
   let mut event_pump = sdl_context.event_pump().unwrap();
-  let mut dirty = true;
   let mut exit = false;
   while !exit {
-    if dirty {
-      renderer.set_draw_color(Color::RGB(255, 255, 255));
-      renderer.clear();
+    renderer.set_draw_color(Color::RGB(255, 255, 255));
+    renderer.clear();
 
-      LifeRenderer::draw(&life, &mut renderer).unwrap();
+    LifeRenderer::draw(&life, &mut renderer).unwrap();
 
-      renderer.present();
-      dirty = false;
-    }
+    renderer.present();
 
     use sdl2::event::Event;
-    match event_pump.wait_event() {
-      Event::KeyDown {..} => { life = Life::new(); dirty = true; }
-      Event::Quit {..} => { exit = true; }
+    match event_pump.wait_event_timeout(50) {
+      Some(Event::KeyDown {..}) => {
+        println!("Resetting after {} generations", life.generation);
+        life = Life::new();
+      }
+      Some(Event::Quit {..}) => { exit = true; }
+      Some(Event::Window {win_event_id: we, ..}) => { println!("{:?}", we); }
+      Some(e) => { println!("{:?}", e); }
       _ => ()
     }
+
+    life.update();
   }
 }
