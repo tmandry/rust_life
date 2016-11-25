@@ -6,12 +6,25 @@ use game::Board;
 
 const CANDIDATE_SIZE: usize = 10;
 const NEIGHBOR_FLIPS: usize = 2;
+const INIT_CELL_PROB: f32   = 0.3;
 
 pub struct Pattern {
   grid: [[bool; CANDIDATE_SIZE]; CANDIDATE_SIZE]
 }
 
 impl Pattern {
+  pub fn random() -> Pattern {
+    let mut p = Pattern{grid: [[false; CANDIDATE_SIZE]; CANDIDATE_SIZE]};
+    for r in 0..CANDIDATE_SIZE {
+      for c in 0..CANDIDATE_SIZE {
+        if rand::random::<f32>() < INIT_CELL_PROB {
+          p.grid[r][c] = true;
+        }
+      }
+    }
+    p
+  }
+
   // Returns a Board board that contains this candidate in the middle, but is otherwise empty.
   fn starting_board(&self) -> Board {
     let mut board = Board::empty();
