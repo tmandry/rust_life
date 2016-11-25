@@ -4,11 +4,11 @@ use sdl2::rect::Rect;
 use sdl2::render::Renderer;
 
 extern crate life;
-use life::Life;
+use life::game::Board;
 
 struct LifeRenderer {}
 impl LifeRenderer {
-  fn draw(board: &Life, renderer: &mut Renderer) -> Result<(), String> {
+  fn draw(board: &Board, renderer: &mut Renderer) -> Result<(), String> {
     let (w, h) = renderer.window().unwrap().size();
     let rows = board.size().0 as u32;
     let cols = board.size().1 as u32;
@@ -63,7 +63,7 @@ fn main() {
   let window = sdl2::video::WindowBuilder::new(&video_ctx, "My window", 640, 640).build().unwrap();
   let mut renderer = window.renderer().present_vsync().build().unwrap();
 
-  let mut life = Life::random();
+  let mut life = Board::random();
 
   let mut event_pump = sdl_context.event_pump().unwrap();
   let mut exit = false;
@@ -79,7 +79,7 @@ fn main() {
     match event_pump.wait_event_timeout(50) {
       Some(Event::KeyDown {..}) => {
         println!("Resetting after {} generations", life.generation);
-        life = Life::random();
+        life = Board::random();
       }
       Some(Event::Quit {..}) => { exit = true; }
       Some(Event::Window {win_event_id: we, ..}) => { println!("{:?}", we); }
