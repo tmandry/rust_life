@@ -3,7 +3,7 @@ use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::Renderer;
 
-mod life;
+extern crate life;
 use life::Life;
 
 struct LifeRenderer {}
@@ -63,7 +63,7 @@ fn main() {
   let window = sdl2::video::WindowBuilder::new(&video_ctx, "My window", 640, 640).build().unwrap();
   let mut renderer = window.renderer().present_vsync().build().unwrap();
 
-  let mut life = Life::new();
+  let mut life = Life::random();
 
   let mut event_pump = sdl_context.event_pump().unwrap();
   let mut exit = false;
@@ -79,7 +79,7 @@ fn main() {
     match event_pump.wait_event_timeout(50) {
       Some(Event::KeyDown {..}) => {
         println!("Resetting after {} generations", life.generation);
-        life = Life::new();
+        life = Life::random();
       }
       Some(Event::Quit {..}) => { exit = true; }
       Some(Event::Window {win_event_id: we, ..}) => { println!("{:?}", we); }
@@ -87,6 +87,6 @@ fn main() {
       _ => ()
     }
 
-    life.update();
+    life = life.next();
   }
 }

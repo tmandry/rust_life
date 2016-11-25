@@ -1,0 +1,9 @@
+[package]
+name = "life"
+version = "0.1.0"
+authors = ["Tyler Mandry <tmandry@gmail.com>"]
+
+[dependencies]
+sdl2 = "0.24"
+rand = "0.3"
+optimizer = { path = "../optimizer" }

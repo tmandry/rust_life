@@ -1,7 +1,8 @@
 [root]
-name = "rust_life"
+name = "life"
 version = "0.1.0"
 dependencies = [
+ "optimizer 0.1.0",
  "rand 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "sdl2 0.24.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -86,6 +87,10 @@ dependencies = [
 name = "num-traits"
 version = "0.1.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "optimizer"
+version = "0.1.0"
 
 [[package]]
 name = "rand"
