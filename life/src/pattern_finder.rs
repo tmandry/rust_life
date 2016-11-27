@@ -1,6 +1,5 @@
-extern crate optimizer;
-extern crate rand;
-use self::optimizer::{Cost, Neighbor};
+use optimizer::{Cost, Neighbor};
+use rand;
 
 use game::Board;
 
