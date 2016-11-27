@@ -26,13 +26,13 @@ impl BoardRect {
   }
 }
 
-pub struct LifeRenderer {
+pub struct BoardRenderer {
   draw_rect: Rect,
   board_rect: Option<BoardRect>,
 }
-impl LifeRenderer {
-  pub fn new(draw_rect: Rect) -> LifeRenderer {
-    LifeRenderer {
+impl BoardRenderer {
+  pub fn new(draw_rect: Rect) -> BoardRenderer {
+    BoardRenderer {
       draw_rect: draw_rect,
       board_rect: None
     }

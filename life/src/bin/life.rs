@@ -4,7 +4,7 @@ use sdl2::rect::Rect;
 
 extern crate life;
 use life::game::Board;
-use life::gui::LifeRenderer;
+use life::gui::BoardRenderer;
 
 fn main() {
   let sdl_context = sdl2::init().unwrap();
@@ -14,7 +14,7 @@ fn main() {
   let mut renderer = window.renderer().present_vsync().build().unwrap();
 
   let mut life = Board::random();
-  let board_renderer = LifeRenderer::new(Rect::new(0, 0, 640, 640));
+  let board_renderer = BoardRenderer::new(Rect::new(0, 0, 640, 640));
 
   let mut event_pump = sdl_context.event_pump().unwrap();
   let mut exit = false;
