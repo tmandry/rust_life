@@ -5,7 +5,7 @@ use self::optimizer::{Cost, Neighbor};
 use game::Board;
 
 const CANDIDATE_SIZE: usize = 10;
-const NEIGHBOR_FLIPS: usize = 2;
+const NEIGHBOR_FLIPS: usize = 1;
 const INIT_CELL_PROB: f32   = 0.3;
 
 pub struct Pattern {

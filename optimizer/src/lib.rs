@@ -7,3 +7,5 @@ pub trait Neighbor {
 
 //pub struct Annealer<T: Cost + Neighbor> {
 //}
+
+pub mod annealing;
