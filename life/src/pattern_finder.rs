@@ -7,6 +7,7 @@ const CANDIDATE_SIZE: usize = 10;
 const NEIGHBOR_FLIPS: usize = 1;
 const INIT_CELL_PROB: f32   = 0.3;
 
+#[derive(Clone)]
 pub struct Pattern {
   grid: [[bool; CANDIDATE_SIZE]; CANDIDATE_SIZE]
 }
@@ -25,7 +26,7 @@ impl Pattern {
   }
 
   // Returns a Board board that contains this candidate in the middle, but is otherwise empty.
-  fn starting_board(&self) -> Board {
+  pub fn starting_board(&self) -> Board {
     let mut board = Board::empty();
     let r_start = board.len() / 2 - CANDIDATE_SIZE / 2;
     let c_start = board[0].len() / 2 - CANDIDATE_SIZE / 2;
