@@ -25,7 +25,7 @@ fn stddev(arr: &[f64], mu: f64) -> f64 {
 struct BasicSchedule;
 impl Schedule for BasicSchedule {
   fn temp(step: u32, step_max: u32) -> f64 {
-    0.0005 / (1. + (1. + step as f64).ln())
+    0.00125 / (1. + (1. + step as f64).ln())
   }
 }
 
@@ -48,12 +48,15 @@ fn train(start: Pattern, mut renderer: &mut Renderer, mut event_pump: &mut Event
   let cb = |p: &Pattern| visit_cb(&p, &board_renderer, &mut renderer, &mut event_pump);
 
   let start_cost = start.cost();
+  println!("Start cost: {}", start_cost);
+
   let mut annealer = Annealer::<Pattern>::new(start);
   annealer.set_visit_cb(Box::new(cb));
-  let final_state = annealer.optimize::<BasicSchedule>(5000);
+
+  let final_state = annealer.optimize::<BasicSchedule>(7000);
   let end_cost = final_state.cost();
-  println!("Start cost: {}", start_cost);
-  println!("End cost:   {}", end_cost);
+  println!("Start cost:  {}", start_cost);
+  println!("End cost:    {}", end_cost);
   println!("Improvement: {}", -(end_cost-start_cost));
 
   final_state.clone()
@@ -92,5 +95,5 @@ fn main() {
   let start_state = Pattern::random();
   present(&start_state, 200, &mut renderer, &mut event_pump);
   let final_state = train(start_state, &mut renderer, &mut event_pump);
-  present(&final_state, 1000, &mut renderer, &mut event_pump);
+  present(&final_state, 100000, &mut renderer, &mut event_pump);
 }

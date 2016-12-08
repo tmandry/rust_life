@@ -41,15 +41,21 @@ impl Pattern {
 
 impl Cost for Pattern {
   fn cost(&self) -> f64 {
-    // Take the difference between the 18th and 20th iteration.
+    // Take the difference between the 16th and 20th iteration.
     // We want to maximize this, so count the proportion of cells that did not change as the cost.
     let mut board = self.starting_board();
-    for _ in 0..18 {
+    for _ in 0..16 {
       board = board.next();
     }
-    let last = board.next().next();
-    let total_cells = board.len() * board[0].len();
-    (total_cells - last.difference(&board)) as f64 / total_cells as f64
+    let cost_start = board;
+    let mut board = cost_start.next();
+    for _ in 17..20 {
+        board = board.next();
+    }
+    let cost_end = board;
+
+    let total_cells = cost_start.len() * cost_start[0].len();
+    (total_cells - cost_end.difference(&cost_start)) as f64 / total_cells as f64
   }
 }
 
