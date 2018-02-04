@@ -2,8 +2,9 @@ extern crate rand;
 
 use std::ops::{Index, IndexMut};
 
-const N: usize = 200;
+const N: usize = 100;
 
+#[derive(Clone)]
 pub struct Board {
   a: [[bool; N]; N],
   pub generation: u64,
@@ -28,6 +29,25 @@ impl Board {
   pub fn empty() -> Board {
     Board {
       a: [[false; N]; N],
+      generation: 0
+    }
+  }
+
+  pub fn parse(x: &[u8]) -> Board {
+    let mut a = [[false; N]; N];
+
+    for r in 0..N {
+      for c in 0..N {
+        a[r][c] = match x[r*N + c] {
+          b'#' => true,
+          b'.' => false,
+          _    => false,
+        }
+      }
+    }
+
+    Board {
+      a: a,
       generation: 0
     }
   }

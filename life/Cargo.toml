@@ -6,4 +6,5 @@ authors = ["Tyler Mandry <tmandry@gmail.com>"]
 [dependencies]
 sdl2 = "0.24"
 rand = "0.3"
+ndarray = "0.11.0"
 optimizer = { path = "../optimizer" }
