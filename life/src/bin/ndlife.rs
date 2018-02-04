@@ -4,8 +4,10 @@ extern crate life;
 
 use life::ndgame::*;
 
+const N: usize = 100;
+
 fn render(a: &Board) {
-    for row in a.genrows() {
+    for row in a.arr.genrows() {
         for &x in row {
             if x > 0 {
                 print!("#");
@@ -18,16 +20,16 @@ fn render(a: &Board) {
 }
 
 fn main() {
-    let mut a = parse(INPUT);
-    let mut scratch = Board::zeros((N, N));
+    let mut b = Board::parse(INPUT, N, N);
+    let mut scratch = Board::scratch(N, N);
     let steps = 100;
-    turn_on_corners(&mut a);
+    b.turn_on_corners();
     for _ in 0..steps {
-        iterate(&mut a, &mut scratch);
-        turn_on_corners(&mut a);
+        b.iterate(&mut scratch);
+        b.turn_on_corners();
         //render(&a);
     }
-    render(&a);
-    let alive = a.iter().filter(|&&x| x > 0).count();
+    render(&b);
+    let alive = b.arr.iter().filter(|&&x| x > 0).count();
     println!("After {} steps there are {} cells alive", steps, alive);
 }

@@ -10,8 +10,8 @@ extern crate ndarray;
 #[cfg(test)]
 mod tests {
 
-    pub const INPUT: &'static [u8] = include_bytes!("../src/life.txt");
-    pub const N: usize = 100;
+    const INPUT: &'static [u8] = include_bytes!("../src/life.txt");
+    const N: usize = 100;
 
     use life::game;
     use life::ndgame;
@@ -33,12 +33,12 @@ mod tests {
     #[bench]
     fn bench_ndgame(b: &mut Bencher)
     {
-        let board = ndgame::parse(INPUT);
-        let mut scratch = ndgame::Board::zeros((N, N));
+        let board = ndgame::Board::parse(INPUT, N, N);
+        let mut scratch = ndgame::Board::scratch(N, N);
         b.iter(|| {
             let mut b = board.clone();
             for _ in 0..100 {
-                ndgame::iterate(&mut b, &mut scratch);
+                b.iterate(&mut scratch);
             }
         })
     }
