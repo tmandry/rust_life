@@ -1,6 +1,5 @@
 extern crate life;
 use life::pattern_finder::Pattern;
-use life::game::Board;
 use life::gui::BoardRenderer;
 
 extern crate optimizer;
@@ -14,6 +13,7 @@ use sdl2::render::Renderer;
 use sdl2::EventPump;
 use sdl2::event::Event;
 
+/*
 fn mean(arr: &[f64]) -> f64 {
   arr.iter().sum::<f64>() / arr.len() as f64
 }
@@ -21,15 +21,16 @@ fn mean(arr: &[f64]) -> f64 {
 fn stddev(arr: &[f64], mu: f64) -> f64 {
   (arr.iter().map(|x| (x - mu) * (x - mu)).sum::<f64>() / arr.len() as f64).sqrt()
 }
+*/
 
 struct BasicSchedule;
 impl Schedule for BasicSchedule {
-  fn temp(step: u32, step_max: u32) -> f64 {
+  fn temp(step: u32, _step_max: u32) -> f64 {
     0.00125 / (1. + (1. + step as f64).ln())
   }
 }
 
-fn visit_cb(p: &Pattern, board_renderer: &BoardRenderer, mut renderer: &mut Renderer, mut event_pump: &mut EventPump) {
+fn visit_cb(p: &Pattern, board_renderer: &BoardRenderer, mut renderer: &mut Renderer, event_pump: &mut EventPump) {
   loop {
     match event_pump.poll_event() {
       None => { break; }
@@ -43,7 +44,7 @@ fn visit_cb(p: &Pattern, board_renderer: &BoardRenderer, mut renderer: &mut Rend
 }
 
 fn train(start: Pattern, mut renderer: &mut Renderer, mut event_pump: &mut EventPump) -> Pattern {
-  let board_renderer = BoardRenderer::new(Rect::new(0, 0, 640, 640)).with_board_rect(life::gui::BoardRect::new(95,95,10,10));
+  let board_renderer = BoardRenderer::new(Rect::new(0, 0, 640, 640)).with_board_rect(life::gui::BoardRect::new(/*95,95*/45,45,10,10));
 
   let cb = |p: &Pattern| visit_cb(&p, &board_renderer, &mut renderer, &mut event_pump);
 
@@ -62,7 +63,7 @@ fn train(start: Pattern, mut renderer: &mut Renderer, mut event_pump: &mut Event
   final_state.clone()
 }
 
-fn present(pattern: &Pattern, steps: u32, mut renderer: &mut Renderer, mut event_pump: &mut EventPump) {
+fn present(pattern: &Pattern, steps: u32, mut renderer: &mut Renderer, event_pump: &mut EventPump) {
   let board_renderer = BoardRenderer::new(Rect::new(0, 0, 640, 640));
 
   let mut board = pattern.starting_board();
