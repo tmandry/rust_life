@@ -2,27 +2,24 @@ use std::{slice, thread, time::Duration};
 use image::{Bgra as Pixel, DynamicImage::ImageBgra8 as DynImage, ImageBuffer};
 use minifb::{Window, WindowOptions};
 
+mod raytracer;
+use raytracer::{Renderer, make_scene};
+
 type Image = ImageBuffer::<Pixel<u8>, Vec<u8>>;
 
-fn render(image: &mut Image) {
-    for (i, pixel) in image.pixels_mut().enumerate() {
-        let color = i as u32;
-        *pixel = Pixel(color.to_le_bytes());
-    }
-}
-
 fn main() {
-    let mut image = Image::new(640, 480);
+    let mut renderer = Renderer::new(make_scene());
 
     let mut window = Window::new(
         "crab rayve",
-        image.width() as usize,
-        image.height() as usize,
+        renderer.image.width() as usize,
+        renderer.image.height() as usize,
         WindowOptions::default())
         .unwrap();
 
-    render(&mut image);
+    renderer.render();
 
+    let image: &Image = &renderer.image;
     let buf: &[u8] = &*image;
     let buf: &[u32] = unsafe { slice::from_raw_parts(buf.as_ptr() as _, buf.len() / 4) };
 
@@ -32,5 +29,6 @@ fn main() {
         thread::sleep(Duration::from_millis(100));
     }
 
-    DynImage(image).into_rgb8().save("test.png").unwrap();
+    std::fs::create_dir_all("output").expect("failed to create output/");
+    DynImage(renderer.image).into_rgb8().save("output/test.png").unwrap();
 }

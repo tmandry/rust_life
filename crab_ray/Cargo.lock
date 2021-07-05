@@ -168,6 +168,7 @@ checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
 name = "crab_ray"
 version = "0.1.0"
 dependencies = [
+ "euclid",
  "image",
  "minifb",
 ]
@@ -267,6 +268,15 @@ dependencies = [
  "log",
  "regex",
  "termcolor",
+]
+
+[[package]]
+name = "euclid"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b9eef94d052d358fe59b62b1c2405e107f1c038542f0db9f8bbc8c5735bc4e27"
+dependencies = [
+ "num-traits",
 ]
 
 [[package]]
