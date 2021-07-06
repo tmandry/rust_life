@@ -54,7 +54,7 @@ pub struct Scene {
     pub width: u32,
     pub height: u32,
     pub fov: Float,
-    pub sphere: Sphere,
+    pub spheres: Vec<Sphere>,
 }
 
 pub struct Ray {
@@ -91,16 +91,55 @@ impl Ray {
     }
 }
 
+pub struct Intersection<'a> {
+    pub distance: f64,
+    pub object: &'a Sphere,
+}
+
+impl<'a> Intersection<'a> {
+    pub fn new(distance: f64, object: &'a Sphere) -> Intersection<'a> {
+        Intersection { distance, object }
+    }
+}
+
+impl Scene {
+    pub fn trace(&self, ray: &Ray) -> Option<Intersection> {
+        self.spheres
+            .iter()
+            .filter_map(|s| s.intersect(ray).map(|d| Intersection::new(d, s)))
+            .min_by(|i1, i2| i1.distance.partial_cmp(&i2.distance).unwrap())
+    }
+}
+
 pub trait Intersectable {
-    fn intersect(&self, ray: &Ray) -> bool;
+    fn intersect(&self, ray: &Ray) -> Option<f64>;
 }
 
 impl Intersectable for Sphere {
-    fn intersect(&self, ray: &Ray) -> bool {
+    fn intersect(&self, ray: &Ray) -> Option<f64> {
+        // First triange:
+        // H: Distance between ray and sphere origin
+        // A: Segment of ray ending at point X nearest sphere origin (forming a right angle)
+        // Solve for opposite side = distance between point X and sphere origin
         let l: Vector3 = self.center - ray.origin;
         let adj = l.dot(ray.direction);
-        let dist_sq = l.square_length() - (adj * adj);
-        dist_sq < (self.radius * self.radius)
+        let center_dist_sq = l.square_length() - (adj * adj);
+        let radius_sq = self.radius * self.radius;
+        if center_dist_sq > radius_sq {
+            return None
+        }
+        // Second triangle:
+        // O: Same as before
+        // H: Radius (distance from origin to intersection)
+        // Solve for adjacent side = "thickness", distance between X and intersection points
+        let thickness = (radius_sq - center_dist_sq).sqrt();
+        // We may need to consider i2 if the camera is inside the sphere.
+        let i1 = adj - thickness;
+        let i2 = adj + thickness;
+        // Return the nearest intersection that is in front of the camera.
+        [i1, i2].iter().copied()
+            .filter(|d| d >= &0.)
+            .min_by(|i1, i2| i1.partial_cmp(i2).unwrap())
     }
 }
 
@@ -118,8 +157,7 @@ impl From<Color> for image::Bgra<u8> {
 
 pub type Image<P> = image::ImageBuffer<P, Vec<<P as image::Pixel>::Subpixel>>;
 
-pub struct Renderer<P: image::Pixel>
-{
+pub struct Renderer<P: image::Pixel> {
     scene: Scene,
     pub image: Image<P>,
 }
@@ -139,10 +177,9 @@ impl<P> Renderer<P> where
         for x in 0..scene.width {
             for y in 0..scene.height {
                 let ray = Ray::new_prime(x, y, &scene);
-                if scene.sphere.intersect(&ray) {
-                    image.put_pixel(x, y, P::from(&scene.sphere.color));
-                } else {
-                    image.put_pixel(x, y, P::from(&Color::black()));
+                match scene.trace(&ray) {
+                    Some(isect) => image.put_pixel(x, y, P::from(&isect.object.color)),
+                    None => image.put_pixel(x, y, P::from(&Color::black())),
                 }
             }
         }
@@ -154,14 +191,34 @@ pub fn make_scene() -> Scene {
         width: 800,
         height: 600,
         fov: 90.,
-        sphere: Sphere {
-            center: Point::new(0., 0., -5.),
-            radius: 1.0,
-            color: Color {
-                red: 0.4,
-                green: 1.0,
-                blue: 0.4,
-            }
-        }
+        spheres: vec![
+            Sphere {
+                center: Point::new(-1.0, -1.0, -7.),
+                radius: 1.0,
+                color: Color {
+                    red: 1.0,
+                    green: 0.4,
+                    blue: 0.4,
+                },
+            },
+            Sphere {
+                center: Point::new(0., 0., -5.),
+                radius: 1.0,
+                color: Color {
+                    red: 0.4,
+                    green: 1.0,
+                    blue: 0.4,
+                },
+            },
+            Sphere {
+                center: Point::new(0.7, 0.7, -4.),
+                radius: 0.6,
+                color: Color {
+                    red: 0.4,
+                    green: 0.4,
+                    blue: 1.0,
+                },
+            },
+        ],
     }
 }
