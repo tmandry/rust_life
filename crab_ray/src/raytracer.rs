@@ -23,6 +23,8 @@
 // Based on code from https://github.com/bheisler/raytracer and
 // https://bheisler.github.io/.
 
+use std::{f32::consts::PI, ops::Mul};
+
 use image::ImageBuffer;
 
 /// The floating point type used for coordinate space.
@@ -37,6 +39,7 @@ pub struct Scene {
     pub height: u32,
     pub fov: Float,
     pub shapes: Vec<Primitive>,
+    pub light: Light,
     pub background: Color,
 }
 
@@ -47,8 +50,10 @@ pub struct Primitive {
 
 pub struct Surface {
     pub color: Color,
+    pub albedo: f32,
 }
 
+#[derive(Clone)]
 pub struct Color {
     pub red: f32,
     pub green: f32,
@@ -61,6 +66,17 @@ impl Color {
     }
 }
 
+impl Mul<f32> for Color {
+    type Output = Color;
+    fn mul(self, rhs: f32) -> Self::Output {
+        Color {
+            red: self.red * rhs,
+            green: self.green * rhs,
+            blue: self.blue * rhs,
+        }
+    }
+}
+
 pub struct Sphere {
     pub center: Point,
     pub radius: Float,
@@ -69,6 +85,12 @@ pub struct Sphere {
 pub struct Plane {
     pub origin: Point,
     pub normal: Vector3,
+}
+
+pub struct Light {
+    pub direction: Vector3,
+    //pub color: Color,
+    pub intensity: f32,
 }
 
 pub struct Ray {
@@ -127,6 +149,7 @@ impl Scene {
 
 pub trait Intersectable {
     fn intersect(&self, ray: &Ray) -> Option<f64>;
+    fn surface_normal(&self, point: &Point) -> Vector3;
 }
 
 impl Intersectable for Sphere {
@@ -155,6 +178,10 @@ impl Intersectable for Sphere {
             .filter(|d| d >= &0.)
             .min_by(|i1, i2| i1.partial_cmp(i2).unwrap())
     }
+
+    fn surface_normal(&self, point: &Point) -> Vector3 {
+        (*point - self.center).normalize()
+    }
 }
 
 impl Intersectable for Plane {
@@ -171,11 +198,15 @@ impl Intersectable for Plane {
             None
         }
     }
+
+    fn surface_normal(&self, _point: &Point) -> Vector3 {
+        self.normal
+    }
 }
 
 impl From<&Color> for image::Bgra<u8> {
     fn from(c: &Color) -> Self {
-        fn scale(component: f32) -> u8 { (component * 255.0) as u8 }
+        fn scale(component: f32) -> u8 { (component * 255.0).clamp(0.0, 255.0) as u8 }
         Self([scale(c.blue), scale(c.green), scale(c.red), 255])
     }
 }
@@ -208,8 +239,19 @@ impl<P> Renderer<P> where
             for y in 0..scene.height {
                 let ray = Ray::new_prime(x, y, &scene);
                 match scene.trace(&ray) {
-                    Some(isect) => image.put_pixel(x, y, P::from(&isect.object.surface.color)),
                     None => image.put_pixel(x, y, P::from(&scene.background)),
+                    Some(intersection) => {
+                        let hit_point = ray.origin + ray.direction * intersection.distance;
+                        // TODO: How to make sure this is facing the right direction?
+                        let surface_normal = intersection.object.shape.surface_normal(&hit_point);
+                        let direction_to_light = -scene.light.direction;
+                        let light_power = surface_normal.dot(direction_to_light).max(0.0) as f32 *
+                            scene.light.intensity;
+                        let light_reflected = intersection.object.surface.albedo / PI;
+                        let color = intersection.object.surface.color.clone() *
+                            (light_power * light_reflected);
+                        image.put_pixel(x, y, P::from(&color))
+                    }
                 }
             }
         }
@@ -233,10 +275,14 @@ pub fn make_scene() -> Scene {
             green: 0.4,
             red: 0.0,
         },
+        light: Light {
+            direction: Vector3::new(-0.2, -0.5, -1.0),
+            intensity: 3.0,
+        },
         shapes: vec![
             Primitive {
                 shape: Sphere {
-                    center: Point::new(-1.0, -1.0, -7.),
+                    center: Point::new(-1.7, -0.7, -7.),
                     radius: 1.0,
                 }.boxed(),
                 surface: Surface {
@@ -245,6 +291,7 @@ pub fn make_scene() -> Scene {
                         green: 0.4,
                         blue: 0.4,
                     },
+                    albedo: 1.0,
                 },
             },
             Primitive {
@@ -258,12 +305,13 @@ pub fn make_scene() -> Scene {
                         green: 1.0,
                         blue: 0.4,
                     },
+                    albedo: 1.0,
                 },
             },
             Primitive {
                 shape: Sphere {
-                    center: Point::new(0.7, 0.7, -4.),
-                    radius: 0.6,
+                    center: Point::new(1.0, 1.0, -4.),
+                    radius: 1.0,
                 }.boxed(),
                 surface: Surface {
                     color: Color {
@@ -271,6 +319,7 @@ pub fn make_scene() -> Scene {
                         green: 0.4,
                         blue: 1.0,
                     },
+                    albedo: 0.9,
                 },
             },
             Primitive {
@@ -280,10 +329,11 @@ pub fn make_scene() -> Scene {
                 }.boxed(),
                 surface: Surface {
                     color: Color {
-                        red: 0.2,
-                        green: 0.2,
-                        blue: 0.2,
+                        red: 0.5,
+                        green: 0.5,
+                        blue: 0.5,
                     },
+                    albedo: 1.0,
                 },
             },
         ],
