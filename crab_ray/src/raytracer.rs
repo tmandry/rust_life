@@ -218,6 +218,21 @@ impl From<Color> for image::Bgra<u8> {
 
 pub type Image<P> = image::ImageBuffer<P, Vec<<P as image::Pixel>::Subpixel>>;
 
+impl Intersection<'_> {
+    fn light_reflected(&self, ray: &Ray, scene: &Scene) -> Color {
+        let hit_point = ray.origin + ray.direction * self.distance;
+        // TODO: How to make sure this is facing the right direction?
+        let surface_normal = self.object.shape.surface_normal(&hit_point);
+        let direction_to_light = -scene.light.direction;
+        let light_power = surface_normal.dot(direction_to_light).max(0.0) as f32 *
+            scene.light.intensity;
+        let light_reflected = self.object.surface.albedo / PI;
+        let color = self.object.surface.color.clone() *
+            (light_power * light_reflected);
+        color
+    }
+}
+
 pub struct Renderer<P: image::Pixel> {
     scene: Scene,
     pub image: Image<P>,
@@ -241,15 +256,7 @@ impl<P> Renderer<P> where
                 match scene.trace(&ray) {
                     None => image.put_pixel(x, y, P::from(&scene.background)),
                     Some(intersection) => {
-                        let hit_point = ray.origin + ray.direction * intersection.distance;
-                        // TODO: How to make sure this is facing the right direction?
-                        let surface_normal = intersection.object.shape.surface_normal(&hit_point);
-                        let direction_to_light = -scene.light.direction;
-                        let light_power = surface_normal.dot(direction_to_light).max(0.0) as f32 *
-                            scene.light.intensity;
-                        let light_reflected = intersection.object.surface.albedo / PI;
-                        let color = intersection.object.surface.color.clone() *
-                            (light_power * light_reflected);
+                        let color = intersection.light_reflected(&ray, &scene);
                         image.put_pixel(x, y, P::from(&color))
                     }
                 }
