@@ -36,12 +36,17 @@ pub struct Scene {
     pub width: u32,
     pub height: u32,
     pub fov: Float,
-    pub shapes: Vec<Box<dyn Shape>>,
+    pub shapes: Vec<Primitive>,
     pub background: Color,
 }
 
-pub trait Shape: Intersectable {
-    fn color(&self) -> &Color;
+pub struct Primitive {
+    pub shape: Box<dyn Intersectable>,
+    pub surface: Surface,
+}
+
+pub struct Surface {
+    pub color: Color,
 }
 
 pub struct Color {
@@ -59,13 +64,11 @@ impl Color {
 pub struct Sphere {
     pub center: Point,
     pub radius: Float,
-    pub color: Color,
 }
 
 pub struct Plane {
     pub origin: Point,
     pub normal: Vector3,
-    pub color: Color,
 }
 
 pub struct Ray {
@@ -104,11 +107,11 @@ impl Ray {
 
 pub struct Intersection<'a> {
     pub distance: f64,
-    pub object: &'a dyn Shape,
+    pub object: &'a Primitive,
 }
 
 impl<'a> Intersection<'a> {
-    pub fn new(distance: f64, object: &'a dyn Shape) -> Intersection<'a> {
+    pub fn new(distance: f64, object: &'a Primitive) -> Intersection<'a> {
         Intersection { distance, object }
     }
 }
@@ -117,7 +120,7 @@ impl Scene {
     pub fn trace(&self, ray: &Ray) -> Option<Intersection> {
         self.shapes
             .iter()
-            .filter_map(|s| s.intersect(ray).map(|d| Intersection::new(d, &**s)))
+            .filter_map(|s| s.shape.intersect(ray).map(|d| Intersection::new(d, s)))
             .min_by(|i1, i2| i1.distance.partial_cmp(&i2.distance).unwrap())
     }
 }
@@ -170,17 +173,6 @@ impl Intersectable for Plane {
     }
 }
 
-impl Shape for Sphere {
-    fn color(&self) -> &Color {
-        &self.color
-    }
-}
-impl Shape for Plane {
-    fn color(&self) -> &Color {
-        &self.color
-    }
-}
-
 impl From<&Color> for image::Bgra<u8> {
     fn from(c: &Color) -> Self {
         fn scale(component: f32) -> u8 { (component * 255.0) as u8 }
@@ -216,7 +208,7 @@ impl<P> Renderer<P> where
             for y in 0..scene.height {
                 let ray = Ray::new_prime(x, y, &scene);
                 match scene.trace(&ray) {
-                    Some(isect) => image.put_pixel(x, y, P::from(isect.object.color())),
+                    Some(isect) => image.put_pixel(x, y, P::from(&isect.object.surface.color)),
                     None => image.put_pixel(x, y, P::from(&scene.background)),
                 }
             }
@@ -242,42 +234,58 @@ pub fn make_scene() -> Scene {
             red: 0.0,
         },
         shapes: vec![
-            Sphere {
-                center: Point::new(-1.0, -1.0, -7.),
-                radius: 1.0,
-                color: Color {
-                    red: 1.0,
-                    green: 0.4,
-                    blue: 0.4,
+            Primitive {
+                shape: Sphere {
+                    center: Point::new(-1.0, -1.0, -7.),
+                    radius: 1.0,
+                }.boxed(),
+                surface: Surface {
+                    color: Color {
+                        red: 1.0,
+                        green: 0.4,
+                        blue: 0.4,
+                    },
                 },
-            }.boxed(),
-            Sphere {
-                center: Point::new(0., 0., -5.),
-                radius: 1.0,
-                color: Color {
-                    red: 0.4,
-                    green: 1.0,
-                    blue: 0.4,
+            },
+            Primitive {
+                shape: Sphere {
+                    center: Point::new(0., 0., -5.),
+                    radius: 1.0,
+                }.boxed(),
+                surface: Surface {
+                    color: Color {
+                        red: 0.4,
+                        green: 1.0,
+                        blue: 0.4,
+                    },
                 },
-            }.boxed(),
-            Sphere {
-                center: Point::new(0.7, 0.7, -4.),
-                radius: 0.6,
-                color: Color {
-                    red: 0.4,
-                    green: 0.4,
-                    blue: 1.0,
+            },
+            Primitive {
+                shape: Sphere {
+                    center: Point::new(0.7, 0.7, -4.),
+                    radius: 0.6,
+                }.boxed(),
+                surface: Surface {
+                    color: Color {
+                        red: 0.4,
+                        green: 0.4,
+                        blue: 1.0,
+                    },
                 },
-            }.boxed(),
-            Plane {
-                origin: Point::new(0., -8.0, 0.),
-                normal: Vector3::new(0., 1., 0.),
-                color: Color {
-                    red: 0.2,
-                    green: 0.2,
-                    blue: 0.2,
-                }
-            }.boxed(),
+            },
+            Primitive {
+                shape: Plane {
+                    origin: Point::new(0., -8.0, 0.),
+                    normal: Vector3::new(0., 1., 0.),
+                }.boxed(),
+                surface: Surface {
+                    color: Color {
+                        red: 0.2,
+                        green: 0.2,
+                        blue: 0.2,
+                    },
+                },
+            },
         ],
     }
 }
