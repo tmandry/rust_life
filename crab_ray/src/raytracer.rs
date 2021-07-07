@@ -37,6 +37,7 @@ pub struct Scene {
     pub height: u32,
     pub fov: Float,
     pub shapes: Vec<Box<dyn Shape>>,
+    pub background: Color,
 }
 
 pub trait Shape: Intersectable {
@@ -216,7 +217,7 @@ impl<P> Renderer<P> where
                 let ray = Ray::new_prime(x, y, &scene);
                 match scene.trace(&ray) {
                     Some(isect) => image.put_pixel(x, y, P::from(isect.object.color())),
-                    None => image.put_pixel(x, y, P::from(&Color::black())),
+                    None => image.put_pixel(x, y, P::from(&scene.background)),
                 }
             }
         }
@@ -235,6 +236,11 @@ pub fn make_scene() -> Scene {
         width: 800,
         height: 600,
         fov: 90.,
+        background: Color {
+            blue: 0.8,
+            green: 0.4,
+            red: 0.0,
+        },
         shapes: vec![
             Sphere {
                 center: Point::new(-1.0, -1.0, -7.),
