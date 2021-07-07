@@ -32,6 +32,17 @@ pub struct World;
 pub type Vector3 = euclid::Vector3D<Float, World>;
 pub type Point = euclid::Point3D<Float, World>;
 
+pub struct Scene {
+    pub width: u32,
+    pub height: u32,
+    pub fov: Float,
+    pub shapes: Vec<Box<dyn Shape>>,
+}
+
+pub trait Shape: Intersectable {
+    fn color(&self) -> &Color;
+}
+
 pub struct Color {
     pub red: f32,
     pub green: f32,
@@ -48,13 +59,6 @@ pub struct Sphere {
     pub center: Point,
     pub radius: Float,
     pub color: Color,
-}
-
-pub struct Scene {
-    pub width: u32,
-    pub height: u32,
-    pub fov: Float,
-    pub spheres: Vec<Sphere>,
 }
 
 pub struct Ray {
@@ -93,20 +97,20 @@ impl Ray {
 
 pub struct Intersection<'a> {
     pub distance: f64,
-    pub object: &'a Sphere,
+    pub object: &'a dyn Shape,
 }
 
 impl<'a> Intersection<'a> {
-    pub fn new(distance: f64, object: &'a Sphere) -> Intersection<'a> {
+    pub fn new(distance: f64, object: &'a dyn Shape) -> Intersection<'a> {
         Intersection { distance, object }
     }
 }
 
 impl Scene {
     pub fn trace(&self, ray: &Ray) -> Option<Intersection> {
-        self.spheres
+        self.shapes
             .iter()
-            .filter_map(|s| s.intersect(ray).map(|d| Intersection::new(d, s)))
+            .filter_map(|s| s.intersect(ray).map(|d| Intersection::new(d, &**s)))
             .min_by(|i1, i2| i1.distance.partial_cmp(&i2.distance).unwrap())
     }
 }
@@ -140,6 +144,12 @@ impl Intersectable for Sphere {
         [i1, i2].iter().copied()
             .filter(|d| d >= &0.)
             .min_by(|i1, i2| i1.partial_cmp(i2).unwrap())
+    }
+}
+
+impl Shape for Sphere {
+    fn color(&self) -> &Color {
+        &self.color
     }
 }
 
@@ -178,7 +188,7 @@ impl<P> Renderer<P> where
             for y in 0..scene.height {
                 let ray = Ray::new_prime(x, y, &scene);
                 match scene.trace(&ray) {
-                    Some(isect) => image.put_pixel(x, y, P::from(&isect.object.color)),
+                    Some(isect) => image.put_pixel(x, y, P::from(isect.object.color())),
                     None => image.put_pixel(x, y, P::from(&Color::black())),
                 }
             }
@@ -186,12 +196,19 @@ impl<P> Renderer<P> where
     }
 }
 
+trait Boxed where Self: Sized {
+    fn boxed(self) -> Box<Self> {
+        Box::new(self)
+    }
+}
+impl<T> Boxed for T {}
+
 pub fn make_scene() -> Scene {
     Scene {
         width: 800,
         height: 600,
         fov: 90.,
-        spheres: vec![
+        shapes: vec![
             Sphere {
                 center: Point::new(-1.0, -1.0, -7.),
                 radius: 1.0,
@@ -200,7 +217,7 @@ pub fn make_scene() -> Scene {
                     green: 0.4,
                     blue: 0.4,
                 },
-            },
+            }.boxed(),
             Sphere {
                 center: Point::new(0., 0., -5.),
                 radius: 1.0,
@@ -209,7 +226,7 @@ pub fn make_scene() -> Scene {
                     green: 1.0,
                     blue: 0.4,
                 },
-            },
+            }.boxed(),
             Sphere {
                 center: Point::new(0.7, 0.7, -4.),
                 radius: 0.6,
@@ -218,7 +235,7 @@ pub fn make_scene() -> Scene {
                     green: 0.4,
                     blue: 1.0,
                 },
-            },
+            }.boxed(),
         ],
     }
 }
