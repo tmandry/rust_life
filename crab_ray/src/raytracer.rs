@@ -61,6 +61,12 @@ pub struct Sphere {
     pub color: Color,
 }
 
+pub struct Plane {
+    pub origin: Point,
+    pub normal: Vector3,
+    pub color: Color,
+}
+
 pub struct Ray {
     pub origin: Point,
     pub direction: Vector3,
@@ -147,7 +153,28 @@ impl Intersectable for Sphere {
     }
 }
 
+impl Intersectable for Plane {
+    fn intersect(&self, ray: &Ray) -> Option<f64> {
+        // Check if the ray and plane are parallel. If so, they won't intersect.
+        let ray_dot_n = ray.direction.dot(self.normal);
+        if ray_dot_n.abs() < 1e-6 {
+            return None;
+        }
+        let distance = (self.origin - ray.origin).dot(self.normal) / ray_dot_n;
+        if distance >= 0.0 {
+            Some(distance)
+        } else {
+            None
+        }
+    }
+}
+
 impl Shape for Sphere {
+    fn color(&self) -> &Color {
+        &self.color
+    }
+}
+impl Shape for Plane {
     fn color(&self) -> &Color {
         &self.color
     }
@@ -235,6 +262,15 @@ pub fn make_scene() -> Scene {
                     green: 0.4,
                     blue: 1.0,
                 },
+            }.boxed(),
+            Plane {
+                origin: Point::new(0., -8.0, 0.),
+                normal: Vector3::new(0., 1., 0.),
+                color: Color {
+                    red: 0.2,
+                    green: 0.2,
+                    blue: 0.2,
+                }
             }.boxed(),
         ],
     }
