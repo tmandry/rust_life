@@ -40,6 +40,9 @@ pub struct Scene {
     pub fov: Float,
     pub shapes: Vec<Primitive>,
     pub light: Light,
+    // Tiny fudge factor for making sure our shadow rays don't accidentally
+    // intersect the object we're tracing from.
+    pub shadow_bias: Float,
     pub background: Color,
 }
 
@@ -223,6 +226,16 @@ impl Intersection<'_> {
         let hit_point = ray.origin + ray.direction * self.distance;
         // TODO: How to make sure this is facing the right direction?
         let surface_normal = self.object.shape.surface_normal(&hit_point);
+
+        // Check if we are occluded by another object (shadow).
+        let shadow_ray = Ray {
+            origin: hit_point + surface_normal * scene.shadow_bias,
+            direction: -scene.light.direction
+        };
+        if scene.trace(&shadow_ray).is_some() {
+            return Color::black();
+        }
+
         let direction_to_light = -scene.light.direction;
         let light_power = surface_normal.dot(direction_to_light).max(0.0) as f32 *
             scene.light.intensity;
@@ -283,9 +296,10 @@ pub fn make_scene() -> Scene {
             red: 0.0,
         },
         light: Light {
-            direction: Vector3::new(-0.2, -0.5, -1.0),
+            direction: Vector3::new(-0.2, -0.9, -0.8).normalize(),
             intensity: 3.0,
         },
+        shadow_bias: 1e-6,
         shapes: vec![
             Primitive {
                 shape: Sphere {
