@@ -2,6 +2,7 @@ use std::{slice, thread, time::Duration};
 use image::{Bgra as Pixel, DynamicImage::ImageBgra8 as DynImage, ImageBuffer};
 use minifb::{Window, WindowOptions};
 
+mod color;
 mod raytracer;
 use raytracer::{Renderer, make_scene};
 

@@ -23,12 +23,14 @@
 // Based on code from https://github.com/bheisler/raytracer and
 // https://bheisler.github.io/.
 
-use std::{f32::consts::PI, ops::{Add, Mul}};
-
+use crate::color::Color;
+use std::f32::consts::PI;
 use image::ImageBuffer;
 
 /// The floating point type used for coordinate space.
 pub type Float = f64;
+
+pub type Image<P> = image::ImageBuffer<P, Vec<<P as image::Pixel>::Subpixel>>;
 
 pub struct World;
 pub type Vector3 = euclid::Vector3D<Float, World>;
@@ -56,41 +58,6 @@ pub struct Surface {
     pub albedo: f32,
 }
 
-#[derive(Clone)]
-pub struct Color {
-    pub red: f32,
-    pub green: f32,
-    pub blue: f32,
-}
-
-impl Color {
-    pub const fn black() -> Self {
-        Color { red: 0.0, green: 0.0, blue: 0.0 }
-    }
-}
-
-impl Add for Color {
-    type Output = Color;
-    fn add(self, rhs: Self) -> Self::Output {
-        Color {
-            red: self.red + rhs.red,
-            green: self.green + rhs.green,
-            blue: self.blue + rhs.blue,
-        }
-    }
-}
-
-impl Mul<f32> for Color {
-    type Output = Color;
-    fn mul(self, rhs: f32) -> Self::Output {
-        Color {
-            red: self.red * rhs,
-            green: self.green * rhs,
-            blue: self.blue * rhs,
-        }
-    }
-}
-
 pub struct Sphere {
     pub center: Point,
     pub radius: Float,
@@ -110,6 +77,16 @@ pub struct Light {
 pub struct Ray {
     pub origin: Point,
     pub direction: Vector3,
+}
+
+pub struct Intersection<'a> {
+    pub distance: f64,
+    pub object: &'a Primitive,
+}
+
+pub trait Intersectable {
+    fn intersect(&self, ray: &Ray) -> Option<f64>;
+    fn surface_normal(&self, point: &Point) -> Vector3;
 }
 
 impl Ray {
@@ -141,17 +118,6 @@ impl Ray {
     }
 }
 
-pub struct Intersection<'a> {
-    pub distance: f64,
-    pub object: &'a Primitive,
-}
-
-impl<'a> Intersection<'a> {
-    pub fn new(distance: f64, object: &'a Primitive) -> Intersection<'a> {
-        Intersection { distance, object }
-    }
-}
-
 impl Scene {
     pub fn trace(&self, ray: &Ray) -> Option<Intersection> {
         self.shapes
@@ -161,9 +127,37 @@ impl Scene {
     }
 }
 
-pub trait Intersectable {
-    fn intersect(&self, ray: &Ray) -> Option<f64>;
-    fn surface_normal(&self, point: &Point) -> Vector3;
+impl<'a> Intersection<'a> {
+    pub fn new(distance: f64, object: &'a Primitive) -> Intersection<'a> {
+        Intersection { distance, object }
+    }
+
+    fn light_reflected(&self, ray: &Ray, scene: &Scene) -> Color {
+        let hit_point = ray.origin + ray.direction * self.distance;
+        // TODO: How to make sure this is facing the right direction?
+        let surface_normal = self.object.shape.surface_normal(&hit_point);
+
+        let mut color = Color::black();
+
+        for light in &scene.lights {
+            // Check if we are occluded by another object (shadow).
+            let shadow_ray = Ray {
+                origin: hit_point + surface_normal * scene.shadow_bias,
+                direction: -light.direction
+            };
+            if scene.trace(&shadow_ray).is_some() {
+                continue;
+            }
+
+            let direction_to_light = -light.direction;
+            let light_power = surface_normal.dot(direction_to_light).max(0.0) as f32 *
+                light.intensity;
+            let light_reflected = self.object.surface.albedo / PI;
+            color = color + self.object.surface.color.clone() *
+                (light_power * light_reflected);
+        }
+        color
+    }
 }
 
 impl Intersectable for Sphere {
@@ -218,49 +212,6 @@ impl Intersectable for Plane {
     }
 }
 
-impl From<&Color> for image::Bgra<u8> {
-    fn from(c: &Color) -> Self {
-        fn scale(component: f32) -> u8 { (component * 255.0).clamp(0.0, 255.0) as u8 }
-        Self([scale(c.blue), scale(c.green), scale(c.red), 255])
-    }
-}
-impl From<Color> for image::Bgra<u8> {
-    fn from(c: Color) -> Self {
-        (&c).into()
-    }
-}
-
-pub type Image<P> = image::ImageBuffer<P, Vec<<P as image::Pixel>::Subpixel>>;
-
-impl Intersection<'_> {
-    fn light_reflected(&self, ray: &Ray, scene: &Scene) -> Color {
-        let hit_point = ray.origin + ray.direction * self.distance;
-        // TODO: How to make sure this is facing the right direction?
-        let surface_normal = self.object.shape.surface_normal(&hit_point);
-
-        let mut color = Color::black();
-
-        for light in &scene.lights {
-            // Check if we are occluded by another object (shadow).
-            let shadow_ray = Ray {
-                origin: hit_point + surface_normal * scene.shadow_bias,
-                direction: -light.direction
-            };
-            if scene.trace(&shadow_ray).is_some() {
-                continue;
-            }
-
-            let direction_to_light = -light.direction;
-            let light_power = surface_normal.dot(direction_to_light).max(0.0) as f32 *
-                light.intensity;
-            let light_reflected = self.object.surface.albedo / PI;
-            color = color + self.object.surface.color.clone() *
-                (light_power * light_reflected);
-        }
-        color
-    }
-}
-
 pub struct Renderer<P: image::Pixel> {
     scene: Scene,
     pub image: Image<P>,
@@ -293,14 +244,14 @@ impl<P> Renderer<P> where
     }
 }
 
-trait Boxed where Self: Sized {
-    fn boxed(self) -> Box<Self> {
-        Box::new(self)
-    }
-}
-impl<T> Boxed for T {}
-
 pub fn make_scene() -> Scene {
+    trait Boxed where Self: Sized {
+        fn boxed(self) -> Box<Self> {
+            Box::new(self)
+        }
+    }
+    impl<T> Boxed for T {}
+
     Scene {
         width: 800,
         height: 600,
