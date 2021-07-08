@@ -23,7 +23,7 @@
 // Based on code from https://github.com/bheisler/raytracer and
 // https://bheisler.github.io/.
 
-use std::{f32::consts::PI, ops::Mul};
+use std::{f32::consts::PI, ops::{Add, Mul}};
 
 use image::ImageBuffer;
 
@@ -39,7 +39,7 @@ pub struct Scene {
     pub height: u32,
     pub fov: Float,
     pub shapes: Vec<Primitive>,
-    pub light: Light,
+    pub lights: Vec<Light>,
     // Tiny fudge factor for making sure our shadow rays don't accidentally
     // intersect the object we're tracing from.
     pub shadow_bias: Float,
@@ -66,6 +66,17 @@ pub struct Color {
 impl Color {
     pub const fn black() -> Self {
         Color { red: 0.0, green: 0.0, blue: 0.0 }
+    }
+}
+
+impl Add for Color {
+    type Output = Color;
+    fn add(self, rhs: Self) -> Self::Output {
+        Color {
+            red: self.red + rhs.red,
+            green: self.green + rhs.green,
+            blue: self.blue + rhs.blue,
+        }
     }
 }
 
@@ -227,21 +238,25 @@ impl Intersection<'_> {
         // TODO: How to make sure this is facing the right direction?
         let surface_normal = self.object.shape.surface_normal(&hit_point);
 
-        // Check if we are occluded by another object (shadow).
-        let shadow_ray = Ray {
-            origin: hit_point + surface_normal * scene.shadow_bias,
-            direction: -scene.light.direction
-        };
-        if scene.trace(&shadow_ray).is_some() {
-            return Color::black();
-        }
+        let mut color = Color::black();
 
-        let direction_to_light = -scene.light.direction;
-        let light_power = surface_normal.dot(direction_to_light).max(0.0) as f32 *
-            scene.light.intensity;
-        let light_reflected = self.object.surface.albedo / PI;
-        let color = self.object.surface.color.clone() *
-            (light_power * light_reflected);
+        for light in &scene.lights {
+            // Check if we are occluded by another object (shadow).
+            let shadow_ray = Ray {
+                origin: hit_point + surface_normal * scene.shadow_bias,
+                direction: -light.direction
+            };
+            if scene.trace(&shadow_ray).is_some() {
+                continue;
+            }
+
+            let direction_to_light = -light.direction;
+            let light_power = surface_normal.dot(direction_to_light).max(0.0) as f32 *
+                light.intensity;
+            let light_reflected = self.object.surface.albedo / PI;
+            color = color + self.object.surface.color.clone() *
+                (light_power * light_reflected);
+        }
         color
     }
 }
@@ -295,10 +310,16 @@ pub fn make_scene() -> Scene {
             green: 0.4,
             red: 0.0,
         },
-        light: Light {
-            direction: Vector3::new(-0.2, -0.9, -0.8).normalize(),
-            intensity: 3.0,
-        },
+        lights: vec![
+            Light {
+                direction: Vector3::new(-0.2, -0.9, -0.8).normalize(),
+                intensity: 2.0,
+            },
+            Light {
+                direction: Vector3::new(0.2, -0.9, -0.8).normalize(),
+                intensity: 2.0,
+            },
+        ],
         shadow_bias: 1e-6,
         shapes: vec![
             Primitive {
@@ -332,7 +353,7 @@ pub fn make_scene() -> Scene {
             Primitive {
                 shape: Sphere {
                     center: Point::new(1.0, 1.0, -4.),
-                    radius: 1.0,
+                    radius: 1.2,
                 }.boxed(),
                 surface: Surface {
                     color: Color {
@@ -345,7 +366,7 @@ pub fn make_scene() -> Scene {
             },
             Primitive {
                 shape: Plane {
-                    origin: Point::new(0., -8.0, 0.),
+                    origin: Point::new(0., -6.0, 0.),
                     normal: Vector3::new(0., 1., 0.),
                 }.boxed(),
                 surface: Surface {
