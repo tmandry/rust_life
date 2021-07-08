@@ -41,7 +41,7 @@ pub struct Scene {
     pub height: u32,
     pub fov: Float,
     pub shapes: Vec<Primitive>,
-    pub lights: Vec<Light>,
+    pub lights: Vec<Box<dyn Light>>,
     // Tiny fudge factor for making sure our shadow rays don't accidentally
     // intersect the object we're tracing from.
     pub shadow_bias: Float,
@@ -68,7 +68,7 @@ pub struct Plane {
     pub normal: Vector3,
 }
 
-pub struct Light {
+pub struct DirectionalLight {
     pub direction: Vector3,
     //pub color: Color,
     pub intensity: f32,
@@ -84,9 +84,20 @@ pub struct Intersection<'a> {
     pub object: &'a Primitive,
 }
 
+pub struct Interaction {
+    pub point: Point,
+    pub surface_norm: Vector3,
+}
+
 pub trait Intersectable {
     fn intersect(&self, ray: &Ray) -> Option<f64>;
     fn surface_normal(&self, point: &Point) -> Vector3;
+}
+
+pub trait Light {
+    /// Returns the intensity of the light at the point of the intersection,
+    /// assuming no occlusion.
+    fn light_power(&self, interaction: &Interaction, scene: &Scene) -> f32;
 }
 
 impl Ray {
@@ -132,31 +143,41 @@ impl<'a> Intersection<'a> {
         Intersection { distance, object }
     }
 
+    pub fn as_interaction(&self, ray: &Ray) -> Interaction {
+        let point = ray.origin + ray.direction * self.distance;
+        Interaction {
+            point,
+            // TODO: How to make sure this is facing the right direction?
+            surface_norm: self.object.shape.surface_normal(&point),
+        }
+    }
+
     fn light_reflected(&self, ray: &Ray, scene: &Scene) -> Color {
-        let hit_point = ray.origin + ray.direction * self.distance;
-        // TODO: How to make sure this is facing the right direction?
-        let surface_normal = self.object.shape.surface_normal(&hit_point);
-
+        let interaction = self.as_interaction(ray);
         let mut color = Color::black();
-
         for light in &scene.lights {
-            // Check if we are occluded by another object (shadow).
-            let shadow_ray = Ray {
-                origin: hit_point + surface_normal * scene.shadow_bias,
-                direction: -light.direction
-            };
-            if scene.trace(&shadow_ray).is_some() {
-                continue;
-            }
-
-            let direction_to_light = -light.direction;
-            let light_power = surface_normal.dot(direction_to_light).max(0.0) as f32 *
-                light.intensity;
+            let light_power = light.light_power(&interaction, scene);
             let light_reflected = self.object.surface.albedo / PI;
             color = color + self.object.surface.color.clone() *
                 (light_power * light_reflected);
         }
         color
+    }
+}
+
+impl Light for DirectionalLight {
+    fn light_power(&self, int: &Interaction, scene: &Scene) -> f32 {
+        // Check if we are occluded by another object (shadow).
+        let shadow_ray = Ray {
+            origin: int.point + int.surface_norm * scene.shadow_bias,
+            direction: -self.direction
+        };
+        if scene.trace(&shadow_ray).is_some() {
+            return 0.0;
+        }
+
+        let direction_to_light = -self.direction;
+        int.surface_norm.dot(direction_to_light).max(0.0) as f32 * self.intensity
     }
 }
 
@@ -262,14 +283,14 @@ pub fn make_scene() -> Scene {
             red: 0.0,
         },
         lights: vec![
-            Light {
+            DirectionalLight {
                 direction: Vector3::new(-0.2, -0.9, -0.8).normalize(),
                 intensity: 2.0,
-            },
-            Light {
+            }.boxed(),
+            DirectionalLight {
                 direction: Vector3::new(0.2, -0.9, -0.8).normalize(),
                 intensity: 2.0,
-            },
+            }.boxed(),
         ],
         shadow_bias: 1e-6,
         shapes: vec![
