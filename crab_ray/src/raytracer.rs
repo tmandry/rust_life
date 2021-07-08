@@ -74,6 +74,12 @@ pub struct DirectionalLight {
     pub intensity: f32,
 }
 
+pub struct SphericalLight {
+    pub point: Point,
+    //pub color: Color,
+    pub intensity: f32,
+}
+
 pub struct Ray {
     pub origin: Point,
     pub direction: Vector3,
@@ -165,19 +171,40 @@ impl<'a> Intersection<'a> {
     }
 }
 
+/// Check if we are occluded by another object (shadow).
+fn occlusion<'a>(
+    direction_to_light: Vector3,
+    int: &Interaction,
+    scene: &'a Scene
+) -> Option<Intersection<'a>> {
+    let shadow_ray = Ray {
+        origin: int.point + int.surface_norm * scene.shadow_bias,
+        direction: direction_to_light,
+    };
+    scene.trace(&shadow_ray)
+}
+
 impl Light for DirectionalLight {
     fn light_power(&self, int: &Interaction, scene: &Scene) -> f32 {
-        // Check if we are occluded by another object (shadow).
-        let shadow_ray = Ray {
-            origin: int.point + int.surface_norm * scene.shadow_bias,
-            direction: -self.direction
-        };
-        if scene.trace(&shadow_ray).is_some() {
+        let direction_to_light = -self.direction;
+        if occlusion(direction_to_light, int, scene).is_some() {
             return 0.0;
         }
-
-        let direction_to_light = -self.direction;
         int.surface_norm.dot(direction_to_light).max(0.0) as f32 * self.intensity
+    }
+}
+
+impl Light for SphericalLight {
+    fn light_power(&self, int: &Interaction, scene: &Scene) -> f32 {
+        let to_light = self.point - int.point;
+        let distance_sq = to_light.square_length();
+        let direction_to_light = to_light.normalize();
+        match occlusion(direction_to_light, int, scene) {
+            Some(int) if int.distance * int.distance < distance_sq => return 0.0,
+            _ => (),
+        }
+        let intensity = self.intensity / (4.0 * PI * distance_sq as f32);
+        int.surface_norm.dot(direction_to_light).max(0.0) as f32 * intensity
     }
 }
 
@@ -285,11 +312,15 @@ pub fn make_scene() -> Scene {
         lights: vec![
             DirectionalLight {
                 direction: Vector3::new(-0.2, -0.9, -0.8).normalize(),
-                intensity: 2.0,
+                intensity: 1.5,
             }.boxed(),
             DirectionalLight {
                 direction: Vector3::new(0.2, -0.9, -0.8).normalize(),
-                intensity: 2.0,
+                intensity: 1.5,
+            }.boxed(),
+            SphericalLight {
+                point: Point::new(-0.1, -1.0, -0.0),
+                intensity: 300.0,
             }.boxed(),
         ],
         shadow_bias: 1e-6,
