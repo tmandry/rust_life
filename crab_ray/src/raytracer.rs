@@ -46,6 +46,7 @@ pub struct Scene {
     // intersect the object we're tracing from.
     pub shadow_bias: Float,
     pub background: Color,
+    pub max_depth: u32,
 }
 
 pub struct Primitive {
@@ -56,6 +57,12 @@ pub struct Primitive {
 pub struct Surface {
     pub color: Color,
     pub albedo: f32,
+    pub reflectivity: Reflectivity,
+}
+
+pub enum Reflectivity {
+    No,
+    Yes(f32),
 }
 
 pub struct Sphere {
@@ -133,6 +140,13 @@ impl Ray {
             }.normalize(),
         }
     }
+
+    pub fn reflected(point: Point, incident: Vector3, norm: Vector3, scene: &Scene) -> Ray {
+        Ray {
+            origin: point + norm * scene.shadow_bias,
+            direction: incident - norm * (2.0 * incident.dot(norm)),
+        }
+    }
 }
 
 impl Scene {
@@ -141,6 +155,16 @@ impl Scene {
             .iter()
             .filter_map(|s| s.shape.intersect(ray).map(|d| Intersection::new(d, s)))
             .min_by(|i1, i2| i1.distance.partial_cmp(&i2.distance).unwrap())
+    }
+
+    pub fn get_color(&self, ray: &Ray, depth: u32) -> Color {
+        if depth > self.max_depth {
+            return self.background.clone();
+        }
+        match self.trace(&ray) {
+            None => self.background.clone(),
+            Some(intersection) => intersection.light_reflected(&ray, self, depth),
+        }
     }
 }
 
@@ -158,12 +182,28 @@ impl<'a> Intersection<'a> {
         }
     }
 
-    fn light_reflected(&self, ray: &Ray, scene: &Scene) -> Color {
+    fn light_reflected(&self, ray: &Ray, scene: &Scene, depth: u32) -> Color {
         let interaction = self.as_interaction(ray);
+        let diffuse_color = self.diffuse_shade(&interaction, scene);
+        match self.object.surface.reflectivity {
+            Reflectivity::No => diffuse_color,
+            Reflectivity::Yes(reflectivity) => {
+                let reflected_ray = Ray::reflected(
+                    interaction.point,
+                    ray.direction,
+                    interaction.surface_norm,
+                    scene);
+                let reflected_color = scene.get_color(&reflected_ray, depth + 1);
+                diffuse_color * (1.0 - reflectivity) + reflected_color * reflectivity
+            }
+        }
+    }
+
+    fn diffuse_shade(&self, interaction: &Interaction, scene: &Scene) -> Color {
         let mut color = Color::black();
+        let light_reflected = self.object.surface.albedo / PI;
         for light in &scene.lights {
             let light_power = light.light_power(&interaction, scene);
-            let light_reflected = self.object.surface.albedo / PI;
             color = color + self.object.surface.color.clone() *
                 (light_power * light_reflected);
         }
@@ -280,13 +320,8 @@ impl<P> Renderer<P> where
         for x in 0..scene.width {
             for y in 0..scene.height {
                 let ray = Ray::new_prime(x, y, &scene);
-                match scene.trace(&ray) {
-                    None => image.put_pixel(x, y, P::from(&scene.background)),
-                    Some(intersection) => {
-                        let color = intersection.light_reflected(&ray, &scene);
-                        image.put_pixel(x, y, P::from(&color))
-                    }
-                }
+                let color = scene.get_color(&ray, 0);
+                image.put_pixel(x, y, P::from(&color));
             }
         }
     }
@@ -301,10 +336,10 @@ pub fn make_scene() -> Scene {
     impl<T> Boxed for T {}
 
     Scene {
-        width: 800,
-        height: 600,
+        width: 1024,
+        height: 768,
         fov: 90.,
-        background: Color::rgb(0.0, 0.4, 0.8),
+        background: Color::rgb(0.0, 0.3, 0.6),
         lights: vec![
             DirectionalLight {
                 direction: Vector3::new(-0.2, -0.9, -0.8).normalize(),
@@ -320,7 +355,9 @@ pub fn make_scene() -> Scene {
             }.boxed(),
         ],
         shadow_bias: 1e-6,
+        max_depth: 10,
         shapes: vec![
+            // Red sphere
             Primitive {
                 shape: Sphere {
                     center: Point::new(-1.7, -0.7, -7.),
@@ -328,9 +365,11 @@ pub fn make_scene() -> Scene {
                 }.boxed(),
                 surface: Surface {
                     color: Color::rgb(1.0, 0.4, 0.4),
-                    albedo: 1.0,
+                    albedo: 0.5,
+                    reflectivity: Reflectivity::No,
                 },
             },
+            // Green sphere
             Primitive {
                 shape: Sphere {
                     center: Point::new(0., 0., -5.),
@@ -338,9 +377,11 @@ pub fn make_scene() -> Scene {
                 }.boxed(),
                 surface: Surface {
                     color: Color::rgb(0.4, 1.0, 0.4),
-                    albedo: 1.0,
+                    albedo: 0.5,
+                    reflectivity: Reflectivity::No,
                 },
             },
+            // Blue sphere
             Primitive {
                 shape: Sphere {
                     center: Point::new(1.0, 1.0, -4.),
@@ -348,17 +389,43 @@ pub fn make_scene() -> Scene {
                 }.boxed(),
                 surface: Surface {
                     color: Color::rgb(0.4, 0.4, 1.0),
-                    albedo: 0.9,
+                    albedo: 0.4,
+                    reflectivity: Reflectivity::No,
+                },
+            },
+            // Glass spheres
+            Primitive {
+                shape: Sphere {
+                    center: Point::new(3.1, -1.0, -5.0),
+                    radius: 0.6,
+                }.boxed(),
+                surface: Surface {
+                    color: Color::black(),
+                    albedo: 1.0,
+                    reflectivity: Reflectivity::Yes(0.95),
                 },
             },
             Primitive {
+                shape: Sphere {
+                    center: Point::new(3.7, 0.2, -5.0),
+                    radius: 0.7,
+                }.boxed(),
+                surface: Surface {
+                    color: Color::black(),
+                    albedo: 1.0,
+                    reflectivity: Reflectivity::Yes(0.80),
+                },
+            },
+            // Floor
+            Primitive {
                 shape: Plane {
-                    origin: Point::new(0., -6.0, 0.),
+                    origin: Point::new(0., -2.0, 0.),
                     normal: Vector3::new(0., 1., 0.),
                 }.boxed(),
                 surface: Surface {
                     color: Color::rgb(0.5, 0.5, 0.5),
-                    albedo: 1.0,
+                    albedo: 0.6,
+                    reflectivity: Reflectivity::Yes(0.3),
                 },
             },
         ],
