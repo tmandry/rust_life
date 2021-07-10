@@ -2,12 +2,21 @@ use std::ops::{Add, Mul};
 
 #[derive(Clone)]
 pub struct Color {
-    pub red: f32,
-    pub green: f32,
-    pub blue: f32,
+    red: f32,
+    green: f32,
+    blue: f32,
 }
 
 impl Color {
+    /// Creates a `Color` from standard RGB values scaled from 0.0-1.0.
+    pub fn rgb(red: f32, green: f32, blue: f32) -> Color {
+        Color {
+            red: gamma_decode(red),
+            green: gamma_decode(green),
+            blue: gamma_decode(blue),
+        }
+    }
+
     pub const fn black() -> Self {
         Color { red: 0.0, green: 0.0, blue: 0.0 }
     }
@@ -35,9 +44,21 @@ impl Mul<f32> for Color {
     }
 }
 
+const GAMMA: f32 = 2.2;
+
+fn gamma_encode(linear: f32) -> f32 {
+    linear.powf(1.0 / GAMMA)
+}
+
+fn gamma_decode(value: f32) -> f32 {
+    value.powf(GAMMA)
+}
+
 impl From<&Color> for image::Bgra<u8> {
     fn from(c: &Color) -> Self {
-        fn scale(component: f32) -> u8 { (component * 255.0).clamp(0.0, 255.0) as u8 }
+        fn scale(component: f32) -> u8 {
+            (gamma_encode(component) * 255.0).clamp(0.0, 255.0) as u8
+        }
         Self([scale(c.blue), scale(c.green), scale(c.red), 255])
     }
 }

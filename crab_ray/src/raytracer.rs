@@ -304,23 +304,19 @@ pub fn make_scene() -> Scene {
         width: 800,
         height: 600,
         fov: 90.,
-        background: Color {
-            blue: 0.8,
-            green: 0.4,
-            red: 0.0,
-        },
+        background: Color::rgb(0.0, 0.4, 0.8),
         lights: vec![
             DirectionalLight {
                 direction: Vector3::new(-0.2, -0.9, -0.8).normalize(),
-                intensity: 1.5,
+                intensity: 1.0,
             }.boxed(),
             DirectionalLight {
                 direction: Vector3::new(0.2, -0.9, -0.8).normalize(),
-                intensity: 1.5,
+                intensity: 1.0,
             }.boxed(),
             SphericalLight {
                 point: Point::new(-0.1, -1.0, -0.0),
-                intensity: 300.0,
+                intensity: 200.0,
             }.boxed(),
         ],
         shadow_bias: 1e-6,
@@ -331,11 +327,7 @@ pub fn make_scene() -> Scene {
                     radius: 1.0,
                 }.boxed(),
                 surface: Surface {
-                    color: Color {
-                        red: 1.0,
-                        green: 0.4,
-                        blue: 0.4,
-                    },
+                    color: Color::rgb(1.0, 0.4, 0.4),
                     albedo: 1.0,
                 },
             },
@@ -345,11 +337,7 @@ pub fn make_scene() -> Scene {
                     radius: 1.0,
                 }.boxed(),
                 surface: Surface {
-                    color: Color {
-                        red: 0.4,
-                        green: 1.0,
-                        blue: 0.4,
-                    },
+                    color: Color::rgb(0.4, 1.0, 0.4),
                     albedo: 1.0,
                 },
             },
@@ -359,11 +347,7 @@ pub fn make_scene() -> Scene {
                     radius: 1.2,
                 }.boxed(),
                 surface: Surface {
-                    color: Color {
-                        red: 0.4,
-                        green: 0.4,
-                        blue: 1.0,
-                    },
+                    color: Color::rgb(0.4, 0.4, 1.0),
                     albedo: 0.9,
                 },
             },
@@ -373,11 +357,7 @@ pub fn make_scene() -> Scene {
                     normal: Vector3::new(0., 1., 0.),
                 }.boxed(),
                 surface: Surface {
-                    color: Color {
-                        red: 0.5,
-                        green: 0.5,
-                        blue: 0.5,
-                    },
+                    color: Color::rgb(0.5, 0.5, 0.5),
                     albedo: 1.0,
                 },
             },
