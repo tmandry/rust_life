@@ -79,7 +79,7 @@ impl<'pin, P: gpio::Pin> Touch<'pin, P> {
             }
         }
         let result = above >= SAMPLE_THRESHOLD;
-        debug!("touch = {}; {:?}", result, samples);
+        trace!("touch = {}; {:?}", result, samples);
         result
     }
 

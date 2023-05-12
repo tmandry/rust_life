@@ -521,6 +521,7 @@ dependencies = [
  "embassy-executor",
  "embassy-rp",
  "embassy-time",
+ "futures",
  "panic-probe",
 ]
 
