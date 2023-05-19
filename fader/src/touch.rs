@@ -17,7 +17,7 @@ pub struct Touch<'pin, P: gpio::Pin> {
 const SAMPLES: usize = 10;
 /// How many samples need to be above the threshold for the reading to be
 /// positive. This controls the sensitivity.
-const SAMPLE_THRESHOLD: usize = 2;
+const SAMPLE_THRESHOLD: usize = 3;
 /// Timeout for an individual sample, which usually takes around 50 microseconds.
 const SAMPLE_TIMEOUT: Duration = Duration::from_micros(150);
 /// How many samples to take during calibration to establish a threshold.
