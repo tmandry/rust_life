@@ -9,7 +9,7 @@ use embassy_rp::dma;
 use embassy_rp::gpio::Pin;
 use embassy_rp::pwm::{self, Pwm};
 use embassy_rp::{
-    adc::{self, Adc},
+    adc::{self, Adc, Async},
     bind_interrupts, interrupt,
 };
 use embassy_time::{Duration, Timer};
@@ -24,7 +24,7 @@ bind_interrupts!(struct Irqs {
 });
 
 trait ReadPin {
-    async fn read(&mut self) -> u16;
+    async fn read(&mut self) -> Result<u16, adc::Error>;
 }
 
 async fn move_to(val: u16, pwm: &mut Pwm<'_, impl pwm::Channel>, mut inp: impl ReadPin) {
@@ -35,7 +35,15 @@ async fn move_to(val: u16, pwm: &mut Pwm<'_, impl pwm::Channel>, mut inp: impl R
     let mut integral = 0.0;
     let mut last = None;
     loop {
-        let error = (val as i32) - (inp.read().await as i32);
+        let reading = match inp.read().await {
+            Ok(r) => r,
+            Err(e) => {
+                warn!("Got error while reading from adc: {}", e);
+                Timer::after(Duration::from_millis(2)).await;
+                continue;
+            }
+        };
+        let error = (val as i32) - (reading as i32);
         if error.abs() < 64 {
             break;
         }
@@ -81,18 +89,17 @@ async fn main(_spawner: Spawner) {
     let mut touch = Touch::new(p.PIN_26).await.unwrap();
     let mut adc = Adc::new(p.ADC, Irqs, Default::default());
 
-    struct Reader<'a, 'd, PIN: embedded_hal::adc::Channel<Adc<'d>, ID = u8> + Pin> {
-        adc: &'a mut Adc<'d>,
-        pin: &'a mut PIN,
+    struct Reader<'a, 'd> {
+        adc: &'a mut Adc<'d, Async>,
+        pin: &'a mut adc::Pin<'d>,
     }
-    impl<'a, 'd, PIN: embedded_hal::adc::Channel<Adc<'d>, ID = u8> + Pin> ReadPin
-        for Reader<'a, 'd, PIN>
-    {
-        async fn read(&mut self) -> u16 {
+    impl<'a, 'd> ReadPin for Reader<'a, 'd> {
+        async fn read(&mut self) -> Result<u16, adc::Error> {
             self.adc.read(self.pin).await
         }
     }
 
+    let mut slider = adc::Pin::new(&mut p.PIN_27, embassy_rp::gpio::Pull::None);
     for target in [0.0, 0.25, 0.75, 0.5, 1.0] {
         Timer::after(Duration::from_millis(1000)).await;
         info!("Moving to {}", target);
@@ -109,7 +116,7 @@ async fn main(_spawner: Spawner) {
                 &mut pwm,
                 Reader {
                     adc: &mut adc,
-                    pin: &mut p.PIN_27,
+                    pin: &mut slider,
                 },
             ),
         )
@@ -136,7 +143,8 @@ async fn main(_spawner: Spawner) {
 
     loop {
         Timer::after(Duration::from_millis(50)).await;
-        let (value, touched) = join!(adc.read(&mut p.PIN_27), touch.read());
+        let (value, touched) = join!(adc.read(&mut slider), touch.read());
+        let Ok(value) = value else { continue };
         info!(
             "{} {} {}",
             Slider { value },
