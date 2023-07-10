@@ -5,15 +5,13 @@
 
 use defmt::*;
 use embassy_executor::Spawner;
-use embassy_rp::dma;
-use embassy_rp::gpio::Pin;
 use embassy_rp::pwm::{self, Pwm};
 use embassy_rp::{
     adc::{self, Adc, Async},
-    bind_interrupts, interrupt,
+    bind_interrupts,
 };
 use embassy_time::{Duration, Timer};
-use futures::{join, Future};
+use futures::join;
 use {defmt_rtt as _, panic_probe as _};
 
 mod touch;
